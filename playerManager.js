@@ -1,4 +1,4 @@
-import { classes, rings, amulets, abilities, equipment } from './gameData.js';
+import { classes, rings, amulets, abilities, equipment, merchantItems } from './gameData.js';
 
 export class PlayerManager {
     constructor(game) {
