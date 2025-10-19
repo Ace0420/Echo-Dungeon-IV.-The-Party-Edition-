@@ -66,24 +66,43 @@ class EchoDungeonGame {
         console.log('Initialize called, initialized status:', this.initialized);
         this.initialized = true;
         this.a11y.setButtonState('');
-        this.a11y.speak("Welcome to Echo Dungeon V4: The Full Party Edition! Say 'load game' and provide your save PIN, or choose your class: warrior, mage, or rogue."); 
+        
+        // Force speech to work by calling it with a callback
+        console.log('Attempting to speak welcome message...');
+        this.a11y.speak("Welcome to Echo Dungeon V4: The Full Party Edition! Say load game and provide your save PIN, or choose your class: warrior, mage, or rogue.", () => {
+            console.log('Welcome message completed');
+        });
     }
 
     handleClick() {
-        console.log('Button clicked! Initialized:', this.initialized);
+        console.log('=== BUTTON CLICKED ===');
+        console.log('Current initialized status:', this.initialized);
+        console.log('Current listening status:', this.listening);
         
         if (!this.initialized) {
-            console.log('Calling initialize...');
+            console.log('Not initialized - calling initialize()');
             this.initialize();
         } else {
-            console.log('Starting voice recognition...');
-            this.a11y.startListening(
+            console.log('Already initialized - starting voice recognition');
+            
+            // Stop any existing recognition first
+            if (this.listening) {
+                console.log('Already listening, stopping first...');
+                this.a11y.stopListening();
+                return;
+            }
+            
+            const success = this.a11y.startListening(
                 (command) => {
                     console.log('Command received:', command);
                     this.commandProcessor.processCommand(command);
                 },
-                (error) => console.error('Recognition error:', error)
+                (error) => {
+                    console.error('Recognition error:', error);
+                }
             );
+            
+            console.log('StartListening returned:', success);
         }
     }
 
@@ -354,19 +373,23 @@ class EchoDungeonGame {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded');
+    console.log('=== DOM LOADED ===');
     const game = new EchoDungeonGame();
     const button = document.getElementById('micButton');
     
     if (button) {
-        console.log('Button found, adding listener');
-        button.addEventListener('click', () => {
-            console.log('Click event fired');
-            game.handleClick();
-        });
+        console.log('Button found, adding click listener');
+        button.addEventListener('click', () => game.handleClick());
+        console.log('Click listener added successfully');
     } else {
-        console.error('Button not found!');
+        console.error('ERROR: micButton not found!');
     }
+    
+    // Check browser support
+    console.log('Browser support check:');
+    console.log('- HTTPS:', window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+    console.log('- Speech Synthesis:', !!(window.speechSynthesis && window.SpeechSynthesisUtterance));
+    console.log('- Speech Recognition:', !!(window.webkitSpeechRecognition || window.SpeechRecognition));
 });
 
 export default EchoDungeonGame;
