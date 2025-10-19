@@ -1,4 +1,4 @@
-import { classes, rings, abilities, merchantItems, equipment, amulets } from './gameData.js';
+import { classes, rings, amulets, abilities, equipment } from './gameData.js';
 
 export class PlayerManager {
     constructor(game) {
@@ -230,7 +230,7 @@ export class PlayerManager {
         }
     }
 
-    equipWeaponOrArmor(itemName) {
+    equipWeaponOrArmor(command) {
         const player = this.game.player;
         const weaponNames = equipment.weapons.map(w => w.name.toLowerCase());
         const armorNames = equipment.armor.map(a => a.name.toLowerCase());
@@ -240,7 +240,7 @@ export class PlayerManager {
         let itemType = null;
         
         for (let item of player.inventory) {
-            if (itemName.includes(item.toLowerCase())) {
+            if (command.includes(item.toLowerCase())) {
                 if (weaponNames.includes(item.toLowerCase())) {
                     itemToEquip = item;
                     itemType = 'weapon';
@@ -263,7 +263,40 @@ export class PlayerManager {
         }
         
         const itemIndex = player.inventory.indexOf(itemToEquip);
-        playerusePotion(potionType) {
+        player.inventory.splice(itemIndex, 1);
+        
+        if (itemType === 'weapon') {
+            if (player.weapon) {
+                player.inventory.push(player.weapon);
+            }
+            player.weapon = itemToEquip;
+            const weaponData = equipment.weapons.find(w => w.name === itemToEquip);
+            player.baseAttack = weaponData ? weaponData.attack : 15;
+            this.game.a11y.speak(`You equip the ${itemToEquip}. Attack is now ${player.baseAttack}.`);
+        } else if (itemType === 'armor') {
+            const oldArmorDefense = player.armor ? equipment.armor.find(a => a.name === player.armor)?.defense || 0 : 0;
+            if (player.armor) {
+                player.inventory.push(player.armor);
+            }
+            player.armor = itemToEquip;
+            const armorData = equipment.armor.find(a => a.name === itemToEquip);
+            const newArmorDefense = armorData ? armorData.defense : 0;
+            player.defense = player.defense - oldArmorDefense + newArmorDefense;
+            this.game.a11y.speak(`You equip the ${itemToEquip}. Defense is now ${player.defense}.`);
+        } else if (itemType === 'shield') {
+            const oldShieldDefense = player.shield ? equipment.shields.find(s => s.name === player.shield)?.defense || 0 : 0;
+            if (player.shield) {
+                player.inventory.push(player.shield);
+            }
+            player.shield = itemToEquip;
+            const shieldData = equipment.shields.find(s => s.name === itemToEquip);
+            const newShieldDefense = shieldData ? shieldData.defense : 0;
+            player.defense = player.defense - oldShieldDefense + newShieldDefense;
+            this.game.a11y.speak(`You equip the ${itemToEquip}. Defense is now ${player.defense}.`);
+        }
+    }
+
+    usePotion(potionType) {
         const player = this.game.player;
         const idx = player.inventory.indexOf(potionType);
         
@@ -471,4 +504,67 @@ export class PlayerManager {
             this.game.a11y.speakSequence(messages);
         }
     }
-}
+
+    saveGame() {
+        try {
+            const saveData = {
+                player: this.game.player,
+                dungeon: {
+                    currentLevel: this.game.dungeon.currentLevel,
+                    grid: this.game.dungeon.grid,
+                    size: this.game.dungeon.size,
+                    secretRoom: this.game.dungeon.secretRoom,
+                    hasSecretRoom: this.game.dungeon.hasSecretRoom
+                },
+                started: this.game.started,
+                phase: this.game.phase
+            };
+            
+            const saveString = JSON.stringify(saveData);
+            const pin = Math.floor(1000 + Math.random() * 9000);
+            
+            const saves = JSON.parse(localStorage.getItem('echoDungeonSaves') || '{}');
+            saves[pin] = saveString;
+            localStorage.setItem('echoDungeonSaves', JSON.stringify(saves));
+            
+            this.game.a11y.speak(`Game saved! Your save PIN is ${pin}. Remember this number to load your game later.`);
+        } catch (error) {
+            console.error('Save error:', error);
+            this.game.a11y.speak('Failed to save game. Please try again.');
+        }
+    }
+
+    loadGame(pin) {
+        try {
+            const saves = JSON.parse(localStorage.getItem('echoDungeonSaves') || '{}');
+            const saveString = saves[pin];
+            
+            if (!saveString) {
+                this.game.a11y.speak(`No save found with PIN ${pin}. Please check your PIN and try again.`);
+                return;
+            }
+            
+            const saveData = JSON.parse(saveString);
+            
+            this.game.player = saveData.player;
+            this.game.dungeon.currentLevel = saveData.dungeon.currentLevel;
+            this.game.dungeon.grid = saveData.dungeon.grid;
+            this.game.dungeon.size = saveData.dungeon.size;
+            this.game.dungeon.secretRoom = saveData.dungeon.secretRoom;
+            this.game.dungeon.hasSecretRoom = saveData.dungeon.hasSecretRoom;
+            
+            const key = `${this.game.player.position.x},${this.game.player.position.y}`;
+            this.game.currentRoom = this.game.dungeon.grid[key];
+            
+            this.game.started = saveData.started;
+            this.game.phase = saveData.phase;
+            this.game.needsClass = false;
+            
+            this.game.a11y.speak(`Game loaded successfully! Welcome back, level ${this.game.player.level} ${classes[this.game.player.class].name}.`);
+            setTimeout(() => this.game.describeRoom(), 1500);
+        } catch (error) {
+            console.error('Load error:', error);
+            this.game.a11y.speak('Failed to load game. The save data may be corrupted.');
+        }
+    }
+        }
