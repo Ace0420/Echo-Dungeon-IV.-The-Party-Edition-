@@ -1,4 +1,9 @@
-import { roomTypes, enemies, treasures, merchantItems } from './gameData.js';
+import { roomTypes, enemies, treasures, merchantItems, rings, amulets } from './gameData.js';
+import { Accessibility } from './accessibility.js';
+import { DungeonGenerator } from './dungeonGenerator.js';
+import { PlayerManager } from './playerManager.js';
+import { Combat } from './combat.js';
+import CommandProcessor from './commandProcessor.js';
 
 class EchoDungeonGame {
     constructor() {
@@ -40,6 +45,10 @@ class EchoDungeonGame {
         this.phase = 'init';
         this.merchantOpen = false;
         this.listening = false;
+
+        // Store references for combat system
+        this.rings = rings;
+        this.amulets = amulets;
 
         // Initialize subsystems
         this.a11y = new Accessibility(this);
@@ -242,7 +251,7 @@ class EchoDungeonGame {
         const totalCost = itemData.price * quantity;
         
         if (this.player.gold < totalCost) {
-            this.a11y.speak(`Ha! You only have ${this.player.gold} gold. That’ll cost ${totalCost}! Scram!`);
+            this.a11y.speak(`Ha! You only have ${this.player.gold} gold. That'll cost ${totalCost}! Scram!`);
             return;
         }
         
@@ -281,7 +290,7 @@ class EchoDungeonGame {
         
         const itemData = treasures.find(t => t.name === itemToSell);
         if (!itemData) {
-            this.a11y.speak('That item isn’t worth my time!');
+            this.a11y.speak('That item isn\'t worth my time!');
             return;
         }
         
@@ -291,13 +300,13 @@ class EchoDungeonGame {
             return;
         }
         
-        const totalValue = itemData.value * quantity * 0.75; // 75% of value
+        const totalValue = Math.floor(itemData.value * quantity * 0.75);
         for (let i = 0; i < quantity; i++) {
             const idx = this.player.inventory.indexOf(itemToSell);
             this.player.inventory.splice(idx, 1);
         }
         this.player.gold += totalValue;
-        this.a11y.speak(`The merchant chuckles, "I’ll take ${quantity} ${itemToSell}${quantity > 1 ? 's' : ''} for ${totalValue} gold." Gold: ${this.player.gold}.`);
+        this.a11y.speak(`The merchant chuckles, "I'll take ${quantity} ${itemToSell}${quantity > 1 ? 's' : ''} for ${totalValue} gold." Gold: ${this.player.gold}.`);
     }
 
     listMerchantWares() {
@@ -306,7 +315,7 @@ class EchoDungeonGame {
             return;
         }
         
-        const messages = ['The merchant smirks: "Here’s my stock:"'];
+        const messages = ['The merchant smirks: "Here\'s my stock:"'];
         merchantItems.forEach(item => {
             messages.push(`${item.name} for ${item.price} gold.`);
         });
@@ -329,23 +338,6 @@ class EchoDungeonGame {
             this.player.gold += loot.amount;
             this.a11y.speak(`You found ${loot.amount} gold! Total gold: ${this.player.gold}.`);
         }
-    }
-
-    gainExperience(exp) {
-        const leaderClass = this.player.class;
-        const leaderExp = Math.floor(exp * 1.5); // Leader gets 1.5x exp
-        
-        this.playerManager.gainExperience(leaderExp);
-        
-        // Distribute base exp to other party members (simulated for now)
-        const otherClasses = ['warrior', 'mage', 'rogue'].filter(c => c !== leaderClass);
-        otherClasses.forEach(cls => {
-            const otherPlayer = { ...classes[cls], experience: 0, experienceToNext: 100 };
-            this.playerManager.gainExperience(exp, otherPlayer);
-            // Note: This is a simulation; actual party exp tracking would require a party array
-        });
-        
-        this.a11y.speak(`The party gained ${exp} experience, with the ${leaderClass} gaining ${leaderExp} as leader!`);
     }
 }
 
