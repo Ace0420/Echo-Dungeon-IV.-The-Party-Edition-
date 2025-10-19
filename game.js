@@ -1,9 +1,4 @@
-import { classes, roomTypes, enemies, treasures, merchantItems, rings, amulets } from './gameData.js';
-import { Accessibility } from './accessibility.js';
-import { DungeonGenerator } from './dungeonGenerator.js';
-import { PlayerManager } from './playerManager.js';
-import { Combat } from './combat.js';
-import CommandProcessor from './commandProcessor.js';
+import { classes, rings, abilities, merchantItems, equipment, amulets } from './gameData.js';
 
 class EchoDungeonGame {
     constructor() {
