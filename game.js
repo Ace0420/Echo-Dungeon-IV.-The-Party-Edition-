@@ -1,5 +1,4 @@
 import { classes, rings, abilities, merchantItems, equipment, amulets } from './gameData.js';
-
 class EchoDungeonGame {
     constructor() {
         this.player = {
