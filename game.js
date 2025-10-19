@@ -1,4 +1,4 @@
-import { roomTypes, enemies, treasures, merchantItems, rings, amulets } from './gameData.js';
+import { classes, roomTypes, enemies, treasures, merchantItems, rings, amulets } from './gameData.js';
 import { Accessibility } from './accessibility.js';
 import { DungeonGenerator } from './dungeonGenerator.js';
 import { PlayerManager } from './playerManager.js';
