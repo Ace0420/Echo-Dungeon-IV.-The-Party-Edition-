@@ -1,6 +1,6 @@
-import { roomTypes, enemies } from './gameData.js';
+import { roomTypes, enemies, rings, amulets, abilities, treasures } from './gameData.js';
 
-class DungeonGenerator {
+export class DungeonGenerator {
     constructor(game) {
         this.game = game;
     }
@@ -244,5 +244,40 @@ class DungeonGenerator {
     getRandomDescription(roomType) {
         const descriptions = roomTypes[roomType].descriptions;
         return descriptions[Math.floor(Math.random() * descriptions.length)];
+    }
+
+    determineLoot() {
+        const roll = Math.random();
+        const level = this.game.dungeon.currentLevel;
+        
+        if (roll < 0.30) {
+            // Gold (30% chance)
+            const baseGold = 10 + (level * 5);
+            const goldAmount = Math.floor(baseGold + Math.random() * baseGold);
+            return { type: 'gold', amount: goldAmount };
+        } else if (roll < 0.50) {
+            // Health or Mana Potion (20% chance)
+            const potions = level >= 3 
+                ? ['Health Potion', 'Mana Potion', 'Greater Health Potion', 'Greater Mana Potion']
+                : ['Health Potion', 'Mana Potion'];
+            const potion = potions[Math.floor(Math.random() * potions.length)];
+            return { type: 'item', item: potion };
+        } else if (roll < 0.65) {
+            // Ring (15% chance)
+            const ring = rings[Math.floor(Math.random() * rings.length)];
+            return { type: 'ring', item: ring.name };
+        } else if (roll < 0.75) {
+            // Amulet (10% chance)
+            const amulet = amulets[Math.floor(Math.random() * amulets.length)];
+            return { type: 'amulet', item: amulet.name };
+        } else if (roll < 0.85) {
+            // Ability book (10% chance)
+            const ability = abilities[Math.floor(Math.random() * abilities.length)];
+            return { type: 'item', item: ability.name };
+        } else {
+            // Treasure (15% chance)
+            const treasure = treasures[Math.floor(Math.random() * treasures.length)];
+            return { type: 'item', item: treasure.name };
+        }
     }
 }
