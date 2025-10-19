@@ -4,53 +4,78 @@ export class Accessibility {
         this.buttonId = 'micButton';
         this.textDisplayId = 'textDisplay';
         this.speechRate = 0.9;
+
         this.browserSupport = {
             speechSynthesis: false,
             speechRecognition: false,
             https: false
         };
+
+        this.recognition = null;
         this.checkBrowserSupport();
     }
 
+    // --- Browser capability check ---
     checkBrowserSupport() {
-        this.browserSupport.https = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-        this.browserSupport.speechSynthesis = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-        this.browserSupport.speechRecognition = !!(window.webkitSpeechRecognition || window.SpeechRecognition);
+        this.browserSupport.https =
+            window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+        this.browserSupport.speechSynthesis =
+            !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+        this.browserSupport.speechRecognition =
+            !!(window.webkitSpeechRecognition || window.SpeechRecognition);
         return this.browserSupport;
     }
 
+    // --- Text output for visual debugging (optional) ---
     displayText(text) {
-        document.getElementById(this.textDisplayId).innerHTML = text;
+        const display = document.getElementById(this.textDisplayId);
+        if (display) display.innerHTML = text;
     }
 
+    // --- Reliable speech function ---
     speak(text, callback) {
         this.displayText(text);
         if (!this.browserSupport.speechSynthesis) {
+            console.warn('Speech synthesis not supported.');
             if (callback) setTimeout(callback, 2000);
             return;
         }
+
         try {
             speechSynthesis.cancel();
-            setTimeout(() => {
+
+            // Wait for voices to be available before speaking
+            const speakNow = () => {
                 const utterance = new SpeechSynthesisUtterance(text.replace(/<[^>]*>/g, ''));
                 utterance.rate = this.speechRate;
+
                 if (callback) {
                     utterance.onend = callback;
                     utterance.onerror = callback;
                 }
+
                 speechSynthesis.speak(utterance);
-            }, 100);
+            };
+
+            if (speechSynthesis.getVoices().length === 0) {
+                // Some browsers (Android) delay voice loading
+                speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
+            } else {
+                speakNow();
+            }
         } catch (error) {
             console.error('Speech synthesis error:', error);
             if (callback) setTimeout(callback, 2000);
         }
     }
 
+    // --- Sequential speech helper ---
     speakSequence(messages, callback) {
         if (!Array.isArray(messages) || messages.length === 0) {
             if (callback) callback();
             return;
         }
+
         const [first, ...rest] = messages;
         this.speak(first, () => {
             if (rest.length > 0) {
@@ -61,15 +86,18 @@ export class Accessibility {
         });
     }
 
+    // --- Start voice recognition ---
     startListening(onResult, onError) {
         if (!this.browserSupport.speechRecognition || !this.browserSupport.https) {
             this.speak('Voice recognition requires HTTPS and a compatible browser like Chrome or Edge.');
             return false;
         }
+
         if (this.game.listening) {
             this.stopListening();
             return false;
         }
+
         try {
             const Recognition = window.webkitSpeechRecognition || window.SpeechRecognition;
             this.recognition = new Recognition();
@@ -78,7 +106,8 @@ export class Accessibility {
 
             this.recognition.onstart = () => {
                 this.game.listening = true;
-                document.getElementById(this.buttonId).classList.add('listening');
+                const button = document.getElementById(this.buttonId);
+                if (button) button.classList.add('listening');
             };
 
             this.recognition.onresult = (event) => {
@@ -99,20 +128,23 @@ export class Accessibility {
             };
 
             this.recognition.onend = () => this.stopListening();
+
             this.recognition.start();
             return true;
         } catch (error) {
-            console.error('Recognition error:', error);
+            console.error('Recognition start error:', error);
             this.speak('Failed to start voice recognition.');
             this.stopListening();
             return false;
         }
     }
 
+    // --- Stop recognition and restore button state ---
     stopListening() {
         this.game.listening = false;
-        document.getElementById(this.buttonId).classList.remove('listening');
-        
+        const button = document.getElementById(this.buttonId);
+        if (button) button.classList.remove('listening');
+
         if (this.recognition) {
             try {
                 this.recognition.stop();
@@ -123,15 +155,15 @@ export class Accessibility {
         }
     }
 
+    // --- Change button appearance (by class) ---
     setButtonState(state) {
         const button = document.getElementById(this.buttonId);
         if (!button) return;
         button.classList.remove('start-button', 'listening', 'combat', 'exploration');
-        if (state) {
-            button.classList.add(state);
-        }
+        if (state) button.classList.add(state);
     }
 
+    // --- Support info for debugging ---
     getSupportInfo() {
         return {
             ...this.browserSupport,
@@ -141,15 +173,12 @@ export class Accessibility {
 
     getRecommendations() {
         const issues = [];
-        if (!this.browserSupport.https) {
+        if (!this.browserSupport.https)
             issues.push('Use HTTPS for voice recognition');
-        }
-        if (!this.browserSupport.speechRecognition) {
+        if (!this.browserSupport.speechRecognition)
             issues.push('Use Chrome, Edge, or Safari for voice recognition');
-        }
-        if (!this.browserSupport.speechSynthesis) {
+        if (!this.browserSupport.speechSynthesis)
             issues.push('Speech synthesis not supported in this browser');
-        }
         return issues;
     }
 }
