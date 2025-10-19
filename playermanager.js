@@ -1,4 +1,4 @@
-import { classes, rings, abilities, merchantItems } from './gameData.js';
+import { classes, rings, amulets, abilities, equipment } from './gameData.js';
 
 export class PlayerManager {
     constructor(game) {
@@ -263,47 +263,7 @@ export class PlayerManager {
         }
         
         const itemIndex = player.inventory.indexOf(itemToEquip);
-        player.inventory.splice(itemIndex, 1);
-        
-        if (itemType === 'weapon' && player.weapon) {
-            player.inventory.push(player.weapon);
-        } else if (itemType === 'armor' && player.armor) {
-            player.inventory.push(player.armor);
-        } else if (itemType === 'shield' && player.shield) {
-            player.inventory.push(player.shield);
-        }
-        
-        if (itemType === 'weapon') {
-            player.weapon = itemToEquip;
-            const weaponData = equipment.weapons.find(w => w.name === itemToEquip);
-            player.baseAttack = weaponData.attack;
-            this.game.a11y.speak(`You equip ${itemToEquip}. Attack is now ${weaponData.attack}.`);
-        } else if (itemType === 'armor') {
-            player.armor = itemToEquip;
-            const armorData = equipment.armor.find(a => a.name === itemToEquip);
-            
-            player.defense = armorData.defense;
-            
-            if (player.shield && equipment.shields) {
-                const shieldData = equipment.shields.find(s => s.name === player.shield);
-                if (shieldData) {
-                    player.defense += shieldData.defense;
-                }
-            }
-            
-            this.game.a11y.speak(`You equip ${itemToEquip}. Defense is now ${player.defense}.`);
-        } else if (itemType === 'shield') {
-            player.shield = itemToEquip;
-            const shieldData = equipment.shields.find(s => s.name === itemToEquip);
-            
-            const armorData = equipment.armor.find(a => a.name === player.armor);
-            player.defense = (armorData ? armorData.defense : 0) + shieldData.defense;
-            
-            this.game.a11y.speak(`You equip ${itemToEquip}. Defense is now ${player.defense}.`);
-        }
-    }
-
-    usePotion(potionType) {
+        playerusePotion(potionType) {
         const player = this.game.player;
         const idx = player.inventory.indexOf(potionType);
         
@@ -511,4 +471,4 @@ export class PlayerManager {
             this.game.a11y.speakSequence(messages);
         }
     }
-                      }
+}
