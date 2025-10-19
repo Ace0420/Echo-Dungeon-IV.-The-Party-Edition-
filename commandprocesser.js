@@ -1,4 +1,4 @@
-import { partyOrder } from './gameData.js';
+import { partyOrder, classes, rings, amulets } from './gameData.js';
 
 class CommandProcessor {
     constructor(game) {
@@ -313,3 +313,5 @@ class CommandProcessor {
         }
     }
 }
+
+export default CommandProcessor;
