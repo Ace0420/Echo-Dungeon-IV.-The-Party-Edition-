@@ -7,6 +7,8 @@ import CommandProcessor from './commandProcessor.js';
 
 class EchoDungeonGame {
     constructor() {
+        console.log('Game constructor called');
+        
         this.player = {
             class: '',
             level: 1,
@@ -51,25 +53,35 @@ class EchoDungeonGame {
         this.amulets = amulets;
 
         // Initialize subsystems
+        console.log('Initializing subsystems...');
         this.a11y = new Accessibility(this);
         this.dungeonGenerator = new DungeonGenerator(this);
         this.playerManager = new PlayerManager(this);
         this.combatSystem = new Combat(this);
         this.commandProcessor = new CommandProcessor(this);
+        console.log('Subsystems initialized');
     }
 
     initialize() {
+        console.log('Initialize called, initialized status:', this.initialized);
         this.initialized = true;
         this.a11y.setButtonState('');
         this.a11y.speak("Welcome to Echo Dungeon V4: The Full Party Edition! Say 'load game' and provide your save PIN, or choose your class: warrior, mage, or rogue."); 
     }
 
     handleClick() {
+        console.log('Button clicked! Initialized:', this.initialized);
+        
         if (!this.initialized) {
+            console.log('Calling initialize...');
             this.initialize();
         } else {
+            console.log('Starting voice recognition...');
             this.a11y.startListening(
-                (command) => this.commandProcessor.processCommand(command),
+                (command) => {
+                    console.log('Command received:', command);
+                    this.commandProcessor.processCommand(command);
+                },
                 (error) => console.error('Recognition error:', error)
             );
         }
@@ -342,8 +354,19 @@ class EchoDungeonGame {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded');
     const game = new EchoDungeonGame();
-    document.getElementById('micButton').addEventListener('click', () => game.handleClick());
+    const button = document.getElementById('micButton');
+    
+    if (button) {
+        console.log('Button found, adding listener');
+        button.addEventListener('click', () => {
+            console.log('Click event fired');
+            game.handleClick();
+        });
+    } else {
+        console.error('Button not found!');
+    }
 });
 
 export default EchoDungeonGame;
