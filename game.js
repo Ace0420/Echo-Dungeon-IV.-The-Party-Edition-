@@ -3,7 +3,7 @@ import { Accessibility } from './accessibility.js';
 import { DungeonGenerator } from './dungeonGenerator.js';
 import { PlayerManager } from './playerManager.js';
 import { Combat } from './combat.js';
-import { CommandProcessor } from './commandProcessor.js';
+import  CommandProcessor  from './commandProcessor.js';
 
 class EchoDungeonGame {
     constructor() {
