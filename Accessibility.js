@@ -4,6 +4,7 @@ export class Accessibility {
         this.buttonId = 'micButton';
         this.textDisplayId = 'textDisplay';
         this.speechRate = 0.9;
+        this.voices = []; // New property for loaded voices
 
         this.browserSupport = {
             speechSynthesis: false,
@@ -13,6 +14,7 @@ export class Accessibility {
 
         this.recognition = null;
         this.checkBrowserSupport();
+        this.loadVoices(); // New function to load voices on startup
     }
 
     // --- Browser capability check ---
@@ -26,13 +28,27 @@ export class Accessibility {
         return this.browserSupport;
     }
 
+    // --- NEW: Load voices once on startup ---
+    loadVoices() {
+        if (this.browserSupport.speechSynthesis) {
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.onvoiceschanged = () => {
+                    this.voices = speechSynthesis.getVoices();
+                    console.log(`Voices loaded: ${this.voices.length}`);
+                };
+            } else {
+                this.voices = speechSynthesis.getVoices();
+            }
+        }
+    }
+
     // --- Text output for visual debugging (optional) ---
     displayText(text) {
         const display = document.getElementById(this.textDisplayId);
         if (display) display.innerHTML = text;
     }
 
-    // --- Reliable speech function ---
+    // --- Reliable speech function (FIXED) ---
     speak(text, callback) {
         this.displayText(text);
         if (!this.browserSupport.speechSynthesis) {
@@ -43,100 +59,99 @@ export class Accessibility {
 
         try {
             speechSynthesis.cancel();
-
-            // Wait for voices to be available before speaking
-            const speakNow = () => {
-                const utterance = new SpeechSynthesisUtterance(text.replace(/<[^>]*>/g, ''));
-                utterance.rate = this.speechRate;
-
-                if (callback) {
-                    utterance.onend = callback;
-                    utterance.onerror = callback;
-                }
-
-                speechSynthesis.speak(utterance);
-            };
-
-            if (speechSynthesis.getVoices().length === 0) {
-                // Some browsers (Android) delay voice loading
-                speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
-            } else {
-                speakNow();
+            
+            // Check if voices are loaded before executing
+            if (this.voices.length === 0) {
+                // If voices aren't ready yet, log an error and skip the greeting 
+                // but let the rest of the code run.
+                console.warn('Speech voices not yet available. Skipping speak.');
+                if (callback) setTimeout(callback, 2000);
+                return; 
             }
-        } catch (error) {
-            console.error('Speech synthesis error:', error);
+            
+            this.executeSpeech(text, callback);
+
+        } catch (e) {
+            console.error('Speech synthesis error:', e);
             if (callback) setTimeout(callback, 2000);
         }
     }
 
-    // --- Sequential speech helper ---
-    speakSequence(messages, callback) {
-        if (!Array.isArray(messages) || messages.length === 0) {
-            if (callback) callback();
-            return;
+    // --- Execute actual speech logic ---
+    executeSpeech(text, callback) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = this.speechRate;
+        
+        // Use a loaded voice if available
+        if (this.voices.length > 0) {
+            utterance.voice = this.voices.find(voice => voice.lang === 'en-US') || this.voices[0];
         }
 
-        const [first, ...rest] = messages;
-        this.speak(first, () => {
-            if (rest.length > 0) {
-                setTimeout(() => this.speakSequence(rest, callback), 500);
-            } else if (callback) {
-                callback();
-            }
-        });
+        if (callback) {
+            utterance.onend = callback;
+        }
+        speechSynthesis.speak(utterance);
     }
 
-    // --- Start voice recognition ---
-    startListening(onResult, onError) {
+    // --- Start recognition (FIXED) ---
+    startListening() {
         if (!this.browserSupport.speechRecognition || !this.browserSupport.https) {
-            this.speak('Voice recognition requires HTTPS and a compatible browser like Chrome or Edge.');
+            // Note: This check already passes on GitHub pages.
+            if (!this.browserSupport.https) {
+                 this.game.a11y.speak('Voice recognition requires a secure connection (HTTPS) or localhost. Please load the game on a proper server.');
+                 console.error('HTTPS required for voice recognition.');
+            }
             return false;
         }
 
-        if (this.game.listening) {
+        if (this.recognition) return true; // Already listening
+
+        const Recognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+        this.recognition = new Recognition();
+        this.recognition.continuous = true;
+        this.recognition.interimResults = false;
+        this.recognition.lang = 'en-US';
+
+        this.recognition.onresult = (event) => {
+            const last = event.results.length - 1;
+            const command = event.results[last][0].transcript.toLowerCase().trim();
+            this.game.a11y.speak(`You said: ${command}`);
+            this.game.commandProcessor.processCommand(command);
+        };
+        
+        // CRITICAL: New error handler for better debugging
+        this.recognition.onerror = (event) => {
+            console.error('Recognition Error:', event.error);
+            // Specifically log mic permission issues
+            if (event.error === 'not-allowed') {
+                this.game.a11y.speak('Please enable microphone permission in your browser settings to continue playing.');
+            } else {
+                 this.game.a11y.speak('Voice recognition encountered an error. Please try tapping to speak again.');
+            }
             this.stopListening();
-            return false;
-        }
+        };
+
+        this.recognition.onend = () => {
+            console.log('Recognition ENDED');
+            this.stopListening();
+            // Optional: Restart listening if needed (e.g., this.startListening();)
+        };
+
+        const button = document.getElementById(this.buttonId);
+        if (button) button.classList.add('listening');
 
         try {
-            const Recognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-            this.recognition = new Recognition();
-            this.recognition.continuous = false;
-            this.recognition.lang = 'en-US';
-
-            this.recognition.onstart = () => {
-                this.game.listening = true;
-                const button = document.getElementById(this.buttonId);
-                if (button) button.classList.add('listening');
-            };
-
-            this.recognition.onresult = (event) => {
-                const command = event.results[0][0].transcript.toLowerCase().trim();
-                this.displayText(`You said: "${command}"`);
-                this.stopListening();
-                setTimeout(() => {
-                    if (onResult) onResult(command);
-                }, 500);
-            };
-
-            this.recognition.onerror = (event) => {
-                this.stopListening();
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    this.speak('Voice error. Try again.');
-                    if (onError) onError(event);
-                }
-            };
-
-            this.recognition.onend = () => this.stopListening();
-
             this.recognition.start();
-            return true;
-        } catch (error) {
-            console.error('Recognition start error:', error);
-            this.speak('Failed to start voice recognition.');
+            this.game.listening = true;
+            this.recognition.onstart = () => {
+                console.log('Recognition STARTED');
+            };
+        } catch (e) {
+            console.error('Recognition Start Error:', e);
             this.stopListening();
             return false;
         }
+        return true;
     }
 
     // --- Stop recognition and restore button state ---
@@ -162,23 +177,5 @@ export class Accessibility {
         button.classList.remove('start-button', 'listening', 'combat', 'exploration');
         if (state) button.classList.add(state);
     }
-
-    // --- Support info for debugging ---
-    getSupportInfo() {
-        return {
-            ...this.browserSupport,
-            recommendations: this.getRecommendations()
-        };
-    }
-
-    getRecommendations() {
-        const issues = [];
-        if (!this.browserSupport.https)
-            issues.push('Use HTTPS for voice recognition');
-        if (!this.browserSupport.speechRecognition)
-            issues.push('Use Chrome, Edge, or Safari for voice recognition');
-        if (!this.browserSupport.speechSynthesis)
-            issues.push('Speech synthesis not supported in this browser');
-        return issues;
-    }
 }
+
